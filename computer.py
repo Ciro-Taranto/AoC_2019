@@ -6,7 +6,12 @@ class InvalidInput(Exception):
 
 
 class Computer(list):
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        *args,
+        user_input: Optional[list[int] | int] = None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.pointer = 0
         self.operations = {
@@ -18,7 +23,28 @@ class Computer(list):
             6: self.jump_if_false,
             7: self.less,
             8: self.equal,
+            99: self.terminate,
         }
+        self.terminated = False
+        self.user_input = []
+        self.set_input(user_input)
+
+    def set_input(self, user_input: Optional[list[int]]) -> None:
+        # This is for backwards compatibility
+        if isinstance(user_input, int):
+            user_input = [
+                user_input,
+            ]
+        elif user_input is None:
+            user_input = []
+        elif not isinstance(user_input, list):
+            raise TypeError
+        elif user_input == []:
+            raise ValueError
+        self.user_input += user_input
+
+    def terminate(self):
+        self.terminated = True
 
     def _two_inputs_op(self, mode: int, operation: Callable[[int, int], int]) -> None:
         input1 = self.get_input(mode)
@@ -27,10 +53,10 @@ class Computer(list):
         mode //= 10
         self._store_value(mode, operation(input1, input2))
 
-    def jump_if_true(self, mode: int, user_input: Optional[int] = None) -> None:
+    def jump_if_true(self, mode: int, user_input: Optional[list[int]] = None) -> None:
         self._jump_if(mode, True)
 
-    def jump_if_false(self, mode: int, user_input: Optional[int] = None) -> None:
+    def jump_if_false(self, mode: int, user_input: Optional[list[int]] = None) -> None:
         self._jump_if(mode, False)
 
     def _jump_if(self, mode: int, if_true: bool) -> None:
@@ -41,11 +67,11 @@ class Computer(list):
             # The -1 is to compensate for the increment with every operation
             self.pointer = position - 1
 
-    def less(self, mode: int, user_input: Optional[int] = None) -> None:
+    def less(self, mode: int, user_input: Optional[list[int]] = None) -> None:
         comparison = int.__lt__
         return self._two_inputs_op(mode, comparison)
 
-    def equal(self, mode: int, user_input: Optional[int] = None) -> None:
+    def equal(self, mode: int, user_input: Optional[list[int]] = None) -> None:
         comparison = int.__eq__
         return self._two_inputs_op(mode, comparison)
 
@@ -66,28 +92,32 @@ class Computer(list):
             )
         return self[self[pointer]] if input_mode == 0 else self[pointer]
 
-    def add(self, mode: int, user_input: Optional[int] = None) -> None:
+    def add(self, mode: int, user_input: Optional[list[int]] = None) -> None:
         self._two_inputs_op(mode, int.__add__)
 
-    def multiply(self, mode: int, user_input: Optional[int] = None) -> None:
+    def multiply(self, mode: int, user_input: Optional[list[int]] = None) -> None:
         self._two_inputs_op(mode, int.__mul__)
 
-    def output(self, mode: int, user_input: Optional[int] = None) -> int:
+    def output(self, mode: int, user_input: Optional[list[int]] = None) -> int:
         return self.get_input(mode)
 
-    def move(self, mode: int, user_input: int) -> None:
+    def move(self, mode: int, user_input: list[int]) -> None:
         if user_input is None:
             raise ValueError(f"External Input can not be None.")
         mode //= 10
-        self._store_value(mode, user_input)
+        self._store_value(mode, user_input.pop(0))
 
-    def process(self, user_input: Optional[int] = None) -> list[int]:
+    def process(self) -> list[int]:
+        user_input = self.user_input
         outputs = []
         while self.pointer <= len(self):
             instruction = self[self.pointer]
             opcode = instruction % 100
             mode = instruction // 100
             if opcode == 99:
+                self.terminate()
+                return outputs
+            if opcode == 3 and not user_input:
                 return outputs
             operation = self.operations[opcode]
             output = operation(mode, user_input)
@@ -101,7 +131,8 @@ if __name__ == "__main__":
 
     def test_case(values: list[int], user_input: int, expected_result: int):
         computer = Computer(values)
-        output = computer.process(user_input)
+        computer.set_input(user_input)
+        output = computer.process()
         assert output[-1] == expected_result
 
     test_case([3, 9, 8, 9, 10, 9, 4, 9, 99, -1, 8], 8, int(True))
