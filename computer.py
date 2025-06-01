@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Optional, Callable
 
 
@@ -5,14 +6,13 @@ class InvalidInput(Exception):
     pass
 
 
-class Computer(list):
+class Computer(defaultdict):
     def __init__(
         self,
-        *args,
+        program: list[int],
         user_input: Optional[list[int] | int] = None,
-        **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(int, {i: val for i, val in enumerate(program)})
         self.pointer = 0
         self.operations = {
             1: self.add,
@@ -30,20 +30,11 @@ class Computer(list):
         self.user_input = []
         self.set_input(user_input)
         self.relative_base = 0
-        self.additional_memory: dict[int, int] = {}
 
     def __getitem__(self, item: int) -> int:
         if item < 0:
             raise ValueError(f"This is not supported.")
-        if item < len(self):
-            return super().__getitem__(item)
-        return self.additional_memory.get(item, 0)
-
-    def __setitem__(self, item: int, value: int) -> None:
-        if item < super().__len__():
-            list.__setitem__(self, item, value)
-        else:
-            self.additional_memory[item] = value
+        return self.get(item, 0)
 
     def set_input(self, user_input: Optional[list[int]]) -> None:
         # This is for backwards compatibility
@@ -69,10 +60,10 @@ class Computer(list):
         mode //= 10
         self._store_value(mode, operation(input1, input2))
 
-    def jump_if_true(self, mode: int, user_input: Optional[list[int]] = None) -> None:
+    def jump_if_true(self, mode: int) -> None:
         self._jump_if(mode, True)
 
-    def jump_if_false(self, mode: int, user_input: Optional[list[int]] = None) -> None:
+    def jump_if_false(self, mode: int) -> None:
         self._jump_if(mode, False)
 
     def _jump_if(self, mode: int, if_true: bool) -> None:
@@ -117,27 +108,28 @@ class Computer(list):
             "Input mode not supported {input_mode}".format(input_mode=input_mode)
         )
 
-    def add(self, mode: int, user_input: Optional[list[int]] = None) -> None:
+    def add(self, mode: int) -> None:
         self._two_inputs_op(mode, int.__add__)
 
-    def multiply(self, mode: int, user_input: Optional[list[int]] = None) -> None:
+    def multiply(self, mode: int) -> None:
         self._two_inputs_op(mode, int.__mul__)
 
-    def output(self, mode: int, user_input: Optional[list[int]] = None) -> int:
+    def output(self, mode: int) -> int:
         return self.get_input(mode)
 
-    def move(self, mode: int, user_input: list[int]) -> None:
+    def move(self, mode: int) -> None:
+        user_input = self.user_input
         if user_input is None:
             raise ValueError(f"External Input can not be None.")
         self._store_value(mode, user_input.pop(0))
 
-    def modify_relative_base(self, mode: int, user_input: list[int]) -> None:
+    def modify_relative_base(self, mode: int) -> None:
         self.relative_base += self.get_input(mode)
 
     def process(self) -> list[int]:
         user_input = self.user_input
         outputs = []
-        while self.pointer <= len(self):
+        while not self.terminated:
             instruction = self[self.pointer]
             opcode = instruction % 100
             mode = instruction // 100
@@ -147,7 +139,7 @@ class Computer(list):
             if opcode == 3 and not user_input:
                 return outputs
             operation = self.operations[opcode]
-            output = operation(mode, user_input)
+            output = operation(mode)
             if output is not None:
                 outputs.append(output)
             self.pointer += 1
