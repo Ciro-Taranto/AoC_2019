@@ -23,11 +23,27 @@ class Computer(list):
             6: self.jump_if_false,
             7: self.less,
             8: self.equal,
+            9: self.modify_relative_base,
             99: self.terminate,
         }
         self.terminated = False
         self.user_input = []
         self.set_input(user_input)
+        self.relative_base = 0
+        self.additional_memory: dict[int, int] = {}
+
+    def __getitem__(self, item: int) -> int:
+        if item < 0:
+            raise ValueError(f"This is not supported.")
+        if item < len(self):
+            return super().__getitem__(item)
+        return self.additional_memory.get(item, 0)
+
+    def __setitem__(self, item: int, value: int) -> None:
+        if item < super().__len__():
+            list.__setitem__(self, item, value)
+        else:
+            self.additional_memory[item] = value
 
     def set_input(self, user_input: Optional[list[int]]) -> None:
         # This is for backwards compatibility
@@ -77,20 +93,29 @@ class Computer(list):
 
     def _store_value(self, mode: int, value: int) -> None:
         self.pointer += 1
-        if mode == 0:
-            self[self[self.pointer]] = value
-        else:
-            raise ValueError("Verboten!")
+        match mode:
+            case 0:
+                self[self[self.pointer]] = value
+            case 2:
+                self[self[self.pointer] + self.relative_base] = value
+            case _:
+                raise ValueError("Verboten!")
 
     def get_input(self, mode: int) -> int:
         self.pointer += 1
         pointer = self.pointer
         input_mode = mode % 10
-        if input_mode > 1:
-            raise ValueError(
-                "Input mode not supported {input_mode}".format(input_mode=input_mode)
-            )
-        return self[self[pointer]] if input_mode == 0 else self[pointer]
+        pointed_value = self[pointer]
+        match input_mode:
+            case 0:
+                return self[pointed_value]
+            case 1:
+                return pointed_value
+            case 2:
+                return self[pointed_value + self.relative_base]
+        raise ValueError(
+            "Input mode not supported {input_mode}".format(input_mode=input_mode)
+        )
 
     def add(self, mode: int, user_input: Optional[list[int]] = None) -> None:
         self._two_inputs_op(mode, int.__add__)
@@ -104,8 +129,10 @@ class Computer(list):
     def move(self, mode: int, user_input: list[int]) -> None:
         if user_input is None:
             raise ValueError(f"External Input can not be None.")
-        mode //= 10
         self._store_value(mode, user_input.pop(0))
+
+    def modify_relative_base(self, mode: int, user_input: list[int]) -> None:
+        self.relative_base += self.get_input(mode)
 
     def process(self) -> list[int]:
         user_input = self.user_input
@@ -223,3 +250,24 @@ if __name__ == "__main__":
         9,
         1001,
     )
+
+    def test_self_writing():
+        program = [
+            109,
+            1,
+            204,
+            -1,
+            1001,
+            100,
+            1,
+            100,
+            1008,
+            100,
+            16,
+            101,
+            1006,
+            101,
+            0,
+            99,
+        ]
+        assert Computer(program).process() == program
