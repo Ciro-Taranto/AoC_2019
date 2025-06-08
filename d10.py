@@ -1,11 +1,10 @@
 from pathlib import Path
-from itertools import combinations
+from itertools import combinations, pairwise
 from collections import defaultdict
 from tqdm import tqdm
 import math
 from heapq import heappop, heappush
 from time import perf_counter
-from typing import Optional
 from functools import cmp_to_key
 from itertools import cycle
 
@@ -46,18 +45,17 @@ class OrbitalStation:
 
     def find_asteroids_in_sight(self) -> None:
         for first, second in self.tqdm(combinations(self.asteroids, 2)):
-            if first == second:
-                continue
-            if second in self.covered[first] or second in self.visible[first]:
+            if second in self.covered[first]:
                 continue
             locations = self.find_possible_locations_between_two_asteroids(
                 first, second
             )
-            self.visible[first].add(locations[0])
-            self.visible[locations[0]].add(first)
-            for location in locations[1:]:
-                self.covered[first].add(location)
-                self.covered[location].add(first)
+            for a, b in pairwise(locations):
+                self.visible[a].add(b)
+                self.visible[b].add(a)
+            for a, b in combinations(locations, 2):
+                self.covered[a].add(b)
+                self.covered[b].add(a)
         return
 
     def part_one(self) -> int:
@@ -102,15 +100,14 @@ class OrbitalStation:
             increment_x = 0
             increment_y = dy // abs(dy)
             max_steps = (dy // increment_y) + 1
-        locations = []
-        for step in range(1, max_steps):
-            location = (
+        locations = [
+            (
                 first[0] + increment_x * step,
                 first[1] + increment_y * step,
             )
-            if location in self.asteroids:
-                locations.append(location)
-        return locations
+            for step in range(max_steps)
+        ]
+        return [l for l in locations if l in self.asteroids]
 
     @staticmethod
     def find_line_and_distance(
