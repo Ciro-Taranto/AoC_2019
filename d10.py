@@ -1,5 +1,5 @@
 from pathlib import Path
-from itertools import product
+from itertools import combinations
 from collections import defaultdict
 from tqdm import tqdm
 import math
@@ -24,40 +24,28 @@ def compare_lines(first: tuple[float, float], second: tuple[float, float]) -> bo
 
 
 class OrbitalStation:
-    def __init__(self, asteroids: set[Location]):
+    def __init__(self, asteroids: set[Location], use_tqdm: bool = False):
         self.asteroids = asteroids
         self.visible: dict[tuple[int, int], set[tuple[int, int]]] = defaultdict(set)
         self.covered: dict[Location, set[Location]] = defaultdict(set)
+        self.tqdm = tqdm if use_tqdm else lambda x: x
 
     @classmethod
-    def from_string(cls, string: str) -> "OrbitalStation":
+    def from_string(cls, string: str, *args, **kwargs) -> "OrbitalStation":
         asteroids = set()
         for y, line in enumerate(string.split("\n")):
             for x, char in enumerate(line):
                 if char == "#":
                     asteroids.add((x, y))
-        return cls(asteroids)
-
-    def to_string(self) -> str:
-        min_x = min(a[0] for a in self.asteroids)
-        min_y = min(a[1] for a in self.asteroids)
-        max_x = max(a[0] for a in self.asteroids)
-        max_y = max(a[1] for a in self.asteroids)
-        lines = []
-        for y in range(min_y, max_y + 1):
-            line = ""
-            for x in range(min_x, max_x + 1):
-                line += "#" if (x, y) in self.asteroids else "."
-            lines.append(line)
-        return "\n".join(lines)
+        return cls(asteroids, *args, **kwargs)
 
     @classmethod
-    def from_file(cls, path: Path) -> "OrbitalStation":
+    def from_file(cls, path: Path, *args, **kwargs) -> "OrbitalStation":
         with path.open("r") as f:
-            return cls.from_string(f.read())
+            return cls.from_string(f.read(), *args, **kwargs)
 
     def find_asteroids_in_sight(self) -> None:
-        for first, second in tqdm(product(self.asteroids, self.asteroids)):
+        for first, second in self.tqdm(combinations(self.asteroids, 2)):
             if first == second:
                 continue
             if second in self.covered[first] or second in self.visible[first]:
@@ -65,19 +53,11 @@ class OrbitalStation:
             locations = self.find_possible_locations_between_two_asteroids(
                 first, second
             )
-            if not locations:
-                self.visible[first].add(second)
-                self.visible[second].add(first)
-            else:
-                self.visible[first].add(locations[0])
-                self.visible[locations[0]].add(first)
-                for location in locations[1:]:
-                    self.covered[location].add(first)
-                    self.covered[first].add(location)
-                self.visible[second].add(locations[-1])
-                self.visible[locations[-1]].add(second)
-                self.covered[first].add(second)
-                self.covered[second].add(first)
+            self.visible[first].add(locations[0])
+            self.visible[locations[0]].add(first)
+            for location in locations[1:]:
+                self.covered[first].add(location)
+                self.covered[location].add(first)
         return
 
     def part_one(self) -> int:
@@ -92,7 +72,7 @@ class OrbitalStation:
         for asteroid in self.asteroids:
             if asteroid == station:
                 continue
-            d, a, s, _ = self.find_line_and_distance(station, asteroid)
+            d, a, s = self.find_line_and_distance(station, asteroid)
             if (a, s) not in asteroids_by_line:
                 asteroids_by_line[a, s] = []
             heappush(asteroids_by_line[a, s], (d, asteroid))
@@ -111,39 +91,43 @@ class OrbitalStation:
     def find_possible_locations_between_two_asteroids(
         self, first: Location, second: Location
     ) -> list[Location]:
-        _, a, sign, b = self.find_line_and_distance(first, second)
-        if first[0] != second[0]:
-            locations = [(x, b + a * x) for x in range(first[0], second[0], sign)][1:]
-            locations = [
-                (x, round(y)) for (x, y) in locations if math.isclose(y, round(y))
-            ]
-            return [location for location in locations if location in self.asteroids]
-
+        dx = second[0] - first[0]
+        dy = second[1] - first[1]
+        if dx != 0:
+            greatest_common_divisor = math.gcd(dx, dy)
+            increment_x = dx // greatest_common_divisor
+            increment_y = dy // greatest_common_divisor
+            max_steps = (dx // increment_x) + 1
         else:
-            return [
-                (first[0], y)
-                for y in range(first[1] + sign, second[1], sign)
-                if (first[0], y) in self.asteroids
-            ]
+            increment_x = 0
+            increment_y = dy // abs(dy)
+            max_steps = (dy // increment_y) + 1
+        locations = []
+        for step in range(1, max_steps):
+            location = (
+                first[0] + increment_x * step,
+                first[1] + increment_y * step,
+            )
+            if location in self.asteroids:
+                locations.append(location)
+        return locations
 
     @staticmethod
     def find_line_and_distance(
         first: Location, second: Location
-    ) -> tuple[float, float, int, Optional[float]]:
-        distance = (first[0] - second[0]) ** 2 + (first[1] - second[1]) ** 2
+    ) -> tuple[float, float, int]:
+        distance = abs(first[0] - second[0]) + abs(first[1] - second[1])
         if first[0] != second[0]:
             a = round((second[1] - first[1]) / (second[0] - first[0]), 20)
-            b = second[1] - a * second[0]
             sign = 1 if second[0] > first[0] else -1
         else:
             sign = 1 if second[1] > first[1] else -1
             a = 10**10 * sign
-            b = None
-        return distance, a, sign, b
+        return distance, a, sign
 
 
 if __name__ == "__main__":
-    os = OrbitalStation.from_file(Path(__file__).parent / "input10.txt")
+    os = OrbitalStation.from_file(Path(__file__).parent / "input10.txt", use_tqdm=False)
     start = perf_counter()
     print(os.part_one())
     print(f"Elapsed {perf_counter() - start:2.4f} seconds.")
