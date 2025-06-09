@@ -1,8 +1,12 @@
 from __future__ import annotations
 import itertools
-from dataclasses import dataclass, astuple
+from dataclasses import dataclass
 from tqdm import tqdm
 import math
+
+
+def astuple(position: Position) -> tuple[int, int, int]:
+    return position.x, position.y, position.z
 
 
 @dataclass
