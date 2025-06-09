@@ -82,6 +82,8 @@ class System:
             self.update()
             if len(cycles) == 3:
                 break
+        # NOTE: This works because in this case t == 0 for all the directions.
+        # If it was not the case we would have to use the terrible Chinese Reminder Theorem.
         return math.lcm(*[p for _, p in cycles.values()])
 
     def energy(self) -> int:
