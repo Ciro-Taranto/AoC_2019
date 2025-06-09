@@ -2,26 +2,16 @@ from __future__ import annotations
 import itertools
 from dataclasses import dataclass
 import math
-import numba
 
 Position = Velocity = tuple[int, int, int]
 
 
-def astuple(position: Position) -> Position:
-    return position
-
-
-@numba.njit
 def add(a: tuple[int, int, int], b: tuple[int, int, int]) -> tuple[int, int, int]:
     return a[0] + b[0], a[1] + b[1], a[2] + b[2]
 
 
 def energy(position: Position) -> int:
     return sum(abs(v) for v in position)
-
-
-def invert(position: Position) -> Position:
-    return tuple([-v for v in position])
 
 
 @dataclass
@@ -33,7 +23,6 @@ class State:
         return energy(self.position) * energy(self.velocity)
 
 
-@numba.njit
 def direction_vector(
     first: tuple[int, int, int], second: tuple[int, int, int]
 ) -> tuple[int, int, int]:
@@ -45,11 +34,12 @@ def direction_vector(
     )
 
 
-@numba.njit
 def unit_direction(p1: int, p2: int) -> int:
+    if p2 > p1:
+        return 1
     if p1 == p2:
         return 0
-    return abs(p2 - p1) // (p2 - p1)
+    return -1
 
 
 class System:
@@ -61,7 +51,7 @@ class System:
         for first, second in itertools.combinations(self.states, 2):
             vector = direction_vector(first.position, second.position)
             first.velocity = add(first.velocity, vector)
-            second.velocity = add(second.velocity, invert(vector))
+            second.velocity = add(second.velocity, (-vector[0], -vector[1], -vector[2]))
 
     def update_positions(self):
         for state in self.states:
