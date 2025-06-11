@@ -58,12 +58,29 @@ class OrbitalStation:
                 self.covered[b].add(a)
         return
 
+    def find_visible_asteroids_armin(self) -> tuple[Location, int]:
+        unique_directions = defaultdict(set)
+        for first, second in self.tqdm(combinations(self.asteroids, 2)):
+            dx = second[0] - first[0]
+            dy = second[1] - first[1]
+            if dx != 0:
+                greatest_common_divisor = math.gcd(dx, dy)
+                increment_x = dx // greatest_common_divisor
+                increment_y = dy // greatest_common_divisor
+            else:
+                increment_x = 0
+                increment_y = dy // abs(dy)
+            unique_directions[first].add((increment_x, increment_y))
+            unique_directions[second].add((-increment_x, -increment_y))
+        location = max(unique_directions, key=lambda x: len(unique_directions[x]))
+        return location, len(unique_directions[location])
+
     def part_one(self) -> int:
         self.find_asteroids_in_sight()
         return max(len(visible) for visible in self.visible.values())
 
     def part_two(self, total: int = 200) -> int:
-        self.find_asteroids_in_sight()
+        station, _ = self.find_visible_asteroids_armin()
         station = max(self.visible, key=lambda x: len(self.visible[x]))
         print(f"Station @ {station}")
         asteroids_by_line = dict()
@@ -128,6 +145,12 @@ if __name__ == "__main__":
     start = perf_counter()
     print(os.part_one())
     print(f"Elapsed {perf_counter() - start:2.4f} seconds.")
+
+    os = OrbitalStation.from_file(Path(__file__).parent / "input10.txt", use_tqdm=False)
+    start = perf_counter()
+    location, visible = os.find_visible_asteroids_armin()
+    print(f"Elapsed {perf_counter() - start:2.4f} seconds.")
+    print(location, visible)
 
     os = OrbitalStation.from_file(Path(__file__).parent / "input10.txt")
 
