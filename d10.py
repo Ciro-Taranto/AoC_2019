@@ -59,6 +59,11 @@ class OrbitalStation:
         return
 
     def find_visible_asteroids_armin(self) -> tuple[Location, int]:
+        """
+        As it turns out, the best algorithm is the one that simplifies things, rather than strange
+        caching. I kept the idea of the gcd for the rationals and hybridized it with the one of
+        Armin to use unique directions, but I stripped the part of the arctan.
+        """
         unique_directions = defaultdict(set)
         for first, second in self.tqdm(combinations(self.asteroids, 2)):
             dx = second[0] - first[0]
