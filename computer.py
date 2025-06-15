@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import deepcopy
 from typing import Optional, Callable
 
 
@@ -6,13 +7,13 @@ class InvalidInput(Exception):
     pass
 
 
-class Computer(defaultdict):
+class Computer:
     def __init__(
         self,
         program: list[int],
         user_input: Optional[list[int] | int] = None,
     ):
-        super().__init__(int, {i: val for i, val in enumerate(program)})
+        self.core = defaultdict(int, {i: val for i, val in enumerate(program)})
         self.pointer = 0
         self.operations = {
             1: self.add,
@@ -31,10 +32,16 @@ class Computer(defaultdict):
         self.set_input(user_input)
         self.relative_base = 0
 
+    def copy(self) -> "Computer":
+        return deepcopy(self)
+
     def __getitem__(self, item: int) -> int:
         if item < 0:
             raise ValueError(f"This is not supported.")
-        return self.get(item, 0)
+        return self.core.get(item, 0)
+
+    def __setitem__(self, item: int, value: object) -> None:
+        self.core[item] = value
 
     def set_input(self, user_input: Optional[list[int]]) -> None:
         # This is for backwards compatibility
