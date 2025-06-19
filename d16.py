@@ -97,10 +97,9 @@ if __name__ == "__main__":
     start = perf_counter()
     print(fft.part_two(numbers))
     print(f"Elapsed: {perf_counter() - start:2.4f} seconds.")
-    exit()
 
     start = perf_counter()
-    print(fft.armin(numbers))
+    print(fft.part_two_armin(numbers))
     print(f"Elapsed: {perf_counter() - start:2.4f} seconds.")
 
     start = perf_counter()
