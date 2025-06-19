@@ -45,11 +45,12 @@ class FFT:
     def part_two(numbers: list[int], repetitions: int = 10_000) -> int:
         digits_to_skip = int("".join(list(map(str, numbers[:7]))))
         values = (numbers * repetitions)[digits_to_skip:]
+        mod10 = [i if i < 10 else i - 10 for i in range(20)]
         for _ in tqdm.tqdm(range(100)):
             new_values = []
             value = 0
             for number in reversed(values):
-                value = (value + number) % 10
+                value = mod10[value + number]
                 new_values.append(value)
             values = new_values
             values.reverse()
@@ -96,12 +97,12 @@ if __name__ == "__main__":
     start = perf_counter()
     print(fft.part_two(numbers))
     print(f"Elapsed: {perf_counter() - start:2.4f} seconds.")
+    exit()
 
     start = perf_counter()
     print(fft.armin(numbers))
     print(f"Elapsed: {perf_counter() - start:2.4f} seconds.")
 
-    exit()
     start = perf_counter()
     print(fft.part_two_fast(numbers))
     print(f"Elapsed: {perf_counter() - start:2.4f} seconds.")
